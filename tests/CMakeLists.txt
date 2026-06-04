@@ -5,3 +5,11 @@ add_test(NAME transport COMMAND test_transport)
 add_executable(test_ring_buffer test_ring_buffer.cpp)
 target_link_libraries(test_ring_buffer PRIVATE gf_audio_core)
 add_test(NAME ring_buffer COMMAND test_ring_buffer)
+
+add_executable(test_latency_calibrator test_latency_calibrator.cpp)
+target_link_libraries(test_latency_calibrator PRIVATE gf_audio_core)
+add_test(NAME latency_calibrator COMMAND test_latency_calibrator)
+
+add_executable(test_recorder test_recorder.cpp)
+target_link_libraries(test_recorder PRIVATE gf_audio_core)
+add_test(NAME recorder COMMAND test_recorder)

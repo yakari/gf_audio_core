@@ -21,6 +21,7 @@ add_library(gf_audio_core
   src/track.cpp
   src/engine.cpp
   src/latency_calibrator.cpp
+  src/recorder.cpp
 )
 target_include_directories(gf_audio_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_features(gf_audio_core PUBLIC cxx_std_17)
@@ -54,6 +55,10 @@ endif()
 if(GF_AUDIO_BUILD_DEMO)
   add_executable(gf_audio_demo tools/gf_audio_demo.cpp)
   target_link_libraries(gf_audio_demo PRIVATE gf_audio_core gf_audio_backend_miniaudio)
+
+  # Real-hardware round-trip latency probe (acoustic loopback).
+  add_executable(gf_latency_probe tools/gf_latency_probe.cpp)
+  target_link_libraries(gf_latency_probe PRIVATE gf_audio_core gf_audio_backend_miniaudio)
 endif()
 
 if(GF_AUDIO_BUILD_TESTS)

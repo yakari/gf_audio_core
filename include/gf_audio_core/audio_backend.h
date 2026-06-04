@@ -31,6 +31,19 @@ class IAudioBackend {
   virtual bool isRunning() const = 0;
   virtual double actualSampleRate() const = 0;
   virtual int actualBufferFrames() const = 0;
+
+  // Reported latency of the current route, in frames. The record path shifts a
+  // captured take earlier by (outputLatencyFrames + inputLatencyFrames) so it
+  // lands on the grid (see recorder.h) — this is the PRIMARY calibration source,
+  // and unlike acoustic loopback it works with headphones.
+  //
+  // Output latency is the dominant, route-dependent term (small wired, large over
+  // Bluetooth); input latency is small and stable for internal/USB mics. Real
+  // backends return OS-reported values (Oboe calculateLatencyMillis() / iOS
+  // AVAudioSession.{output,input}Latency); the miniaudio backend can only
+  // estimate from internal buffer/period sizes, which is fine for desktop dev.
+  virtual double outputLatencyFrames() const = 0;
+  virtual double inputLatencyFrames() const = 0;
 };
 
 // Factory implemented by the miniaudio backend translation unit.

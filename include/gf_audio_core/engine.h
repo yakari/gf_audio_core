@@ -34,7 +34,17 @@ class Engine {
   void setMetronomeEnabled(bool on) { metronome_on_.store(on, std::memory_order_relaxed); }
   void play();   // seek to 0 and start the transport
   void stop();   // pause the transport (keeps playhead)
-  void setRecording(bool on) { recording_.store(on, std::memory_order_relaxed); }
+  // Enabling recording re-arms the start-head latch; the audio thread stamps
+  // the playhead at the first captured block (see recordStartHead()).
+  void setRecording(bool on) {
+    if (on) record_start_head_.store(-1, std::memory_order_release);
+    recording_.store(on, std::memory_order_release);
+  }
+
+  // Grid frame at which the current/last capture began, or -1 if capture has
+  // not produced a block yet. The recorded take must be shifted earlier by the
+  // calibrated round-trip latency relative to this origin (see recorder.h).
+  int64_t recordStartHead() const { return record_start_head_.load(std::memory_order_acquire); }
 
   // Pre-start only.
   Track* addTrack();
@@ -68,7 +78,8 @@ class Engine {
   std::atomic<bool> metronome_on_{true};
   std::atomic<bool> playing_{false};
   std::atomic<bool> recording_{false};
-  std::atomic<int64_t> seek_to_{-1};  // >=0 requests a playhead seek
+  std::atomic<int64_t> record_start_head_{-1};  // playhead latched at capture start
+  std::atomic<int64_t> seek_to_{-1};            // >=0 requests a playhead seek
   std::atomic<int64_t> play_head_{0};
 
   int64_t head_ = 0;  // audio-thread-owned mirror of the playhead

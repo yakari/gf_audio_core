@@ -71,8 +71,13 @@ void Engine::process(const float* in, float* out, int num_frames) {
     const int count = track_count_.load(std::memory_order_acquire);
     for (int i = 0; i < count; ++i) tracks_[i].process(out, out_ch, head_, num_frames);
 
-    if (in != nullptr && input_channels_ > 0 && recording_.load(std::memory_order_relaxed))
+    if (in != nullptr && input_channels_ > 0 && recording_.load(std::memory_order_relaxed)) {
+      // Stamp the grid position of the very first captured frame so the take
+      // can later be aligned (latency-compensated) back onto the grid.
+      if (record_start_head_.load(std::memory_order_relaxed) < 0)
+        record_start_head_.store(head_, std::memory_order_release);
       record_ring_.push(in, static_cast<size_t>(num_frames) * input_channels_);
+    }
 
     head_ += num_frames;
     play_head_.store(head_, std::memory_order_relaxed);

@@ -57,6 +57,22 @@ class MiniaudioBackend : public IAudioBackend {
   }
   int actualBufferFrames() const override { return config_.buffer_frames; }
 
+  // Estimate from the device's internal buffer depth (period size * period
+  // count). This is only an approximation — a real Oboe/CoreAudio backend would
+  // return the OS-reported figure. Good enough for desktop development.
+  double outputLatencyFrames() const override {
+    if (!running_) return 0.0;
+    const double frames = static_cast<double>(device_.playback.internalPeriodSizeInFrames) *
+                          device_.playback.internalPeriods;
+    return frames > 0.0 ? frames : config_.buffer_frames * 2.0;
+  }
+  double inputLatencyFrames() const override {
+    if (!running_ || config_.input_channels <= 0) return 0.0;
+    const double frames = static_cast<double>(device_.capture.internalPeriodSizeInFrames) *
+                          device_.capture.internalPeriods;
+    return frames > 0.0 ? frames : config_.buffer_frames * 2.0;
+  }
+
  private:
   // Realtime audio thread. Forwards straight to the engine render fn.
   static void dataCallback(ma_device* device, void* output, const void* input,

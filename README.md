@@ -41,8 +41,9 @@ tests/                   dependency-free unit tests (transport math, ring buffer
 ```bash
 cmake -S . -B build
 cmake --build build -j
-ctest --test-dir build --output-on-failure   # transport + ring buffer logic tests
+ctest --test-dir build --output-on-failure   # logic tests (no audio hardware)
 ./build/gf_audio_demo 120 5                   # 5 s of metronome at 120 BPM
+./build/gf_latency_probe                      # measure round-trip latency (speaker near mic)
 ```
 
 The core library + tests need no network. Fetching miniaudio (for the backend,
@@ -62,20 +63,35 @@ primitives.
 ## Status — Phase 0 spike
 
 The spike proves **latency-compensated overdubbing** on a single device before any
-UI/sync work.
+UI/sync work. Calibration leads with **OS-reported output latency** (per route) plus a
+small input constant — it works with headphones and needs no user action; acoustic
+loopback (`gf_latency_probe`) is a speaker-only verification/dev fallback.
 
-Done (scaffold):
+Done:
 - [x] Transport / bar-grid math (tested)
 - [x] Lock-free SPSC ring buffer (tested)
 - [x] Metronome (grid-aligned clicks) + working audio output via the demo
 - [x] Track playback aligned to the grid
 - [x] miniaudio duplex backend + C FFI surface
+- [x] `LatencyCalibrator::estimate()` — normalized cross-correlation + parabolic
+      sub-sample interpolation (tested: recovers a known delay to < 1 frame)
+- [x] Engine record path: capture ring + record-start-head latch (`recordStartHead()`)
+- [x] Overdub alignment (`recorder.h` `alignCapturedTake`): shifts a captured take
+      earlier by the calibrated latency onto the grid (tested: impulses land on-grid)
+- [x] Backend latency reporting: `IAudioBackend::outputLatencyFrames()` /
+      `inputLatencyFrames()` — the PRIMARY calibration source (OS-reported in real
+      Oboe/CoreAudio backends; buffer-based estimate in miniaudio)
+- [x] `gf_latency_probe` — acoustic round-trip measurement (speaker-only
+      verification/dev tool; demoted below OS-reported latency)
 
-Next (the actual spike):
-- [ ] `LatencyCalibrator::estimate()` — cross-correlation round-trip measurement
-- [ ] Record path: drain the capture ring into a `Track`, offset by the calibrated
-      latency so the overdub lands on the grid
+Next:
+- [ ] Drive a full record -> align -> playback loop in the engine/demo: compensate by
+      `outputLatencyFrames + inputLatencyFrames`, feed the aligned take into a `Track`,
+      and hear it lock to the click
 - [ ] Count-in (0/1/2 bars) before record+playback
-- [ ] Validate timing on wired **and** Bluetooth output
+- [ ] Real Oboe (Android) / AVAudioEngine (iOS) backends with OS-reported latency
+- [ ] Manual ± ms nudge as the Bluetooth fallback
+- [ ] Validate on real hardware: wired first, then Bluetooth
+- [ ] Sub-sample (fractional-delay) shift for the take, not just whole frames
 - [ ] Time-stretch integration (Signalsmith/SoundTouch) — pre-render on tempo change
 ```
