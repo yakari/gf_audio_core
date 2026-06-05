@@ -67,4 +67,9 @@ long long gf_engine_play_head_frames(gf_engine* e) {
   return e ? static_cast<long long>(e->engine.playHeadFrames()) : 0;
 }
 
+const char* gf_engine_last_error(gf_engine* e) {
+  if (e && e->backend) return e->backend->lastError();
+  return "";
+}
+
 }  // extern "C"

@@ -44,6 +44,10 @@ class IAudioBackend {
   // estimate from internal buffer/period sizes, which is fine for desktop dev.
   virtual double outputLatencyFrames() const = 0;
   virtual double inputLatencyFrames() const = 0;
+
+  // Human-readable description of the last start() failure, or "" if none.
+  // Owned by the backend; valid until the next start().
+  virtual const char* lastError() const = 0;
 };
 
 // Factory implemented by the miniaudio backend translation unit.

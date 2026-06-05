@@ -37,6 +37,10 @@ GF_API void gf_engine_set_recording(gf_engine* e, int enabled);
 
 GF_API long long gf_engine_play_head_frames(gf_engine* e);
 
+// Description of the last gf_engine_start failure, or "" if none / no engine.
+// The returned pointer is owned by the engine and valid until the next start.
+GF_API const char* gf_engine_last_error(gf_engine* e);
+
 #ifdef __cplusplus
 }
 #endif
