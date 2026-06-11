@@ -76,6 +76,16 @@ Track* Engine::addTrack() {
   return &tracks_[c];
 }
 
+void Engine::setTrackMuted(int index, bool muted) {
+  if (index >= 0 && index < track_count_.load(std::memory_order_acquire))
+    tracks_[index].setMuted(muted);
+}
+
+void Engine::setTrackGain(int index, float gain) {
+  if (index >= 0 && index < track_count_.load(std::memory_order_acquire))
+    tracks_[index].setGain(gain);
+}
+
 void Engine::process(const float* in, float* out, int num_frames) {
   const int out_ch = output_channels_;
 

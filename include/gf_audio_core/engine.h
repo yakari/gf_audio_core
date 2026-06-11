@@ -71,6 +71,10 @@ class Engine {
 
   int trackCount() const { return track_count_.load(std::memory_order_acquire); }
 
+  // Per-track mix controls (RT-safe; index must be in [0, trackCount())).
+  void setTrackMuted(int index, bool muted);
+  void setTrackGain(int index, float gain);  // linear, 1.0 = unity
+
   // ---- audio thread ----
   void process(const float* in, float* out, int num_frames);
 

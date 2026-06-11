@@ -95,6 +95,13 @@ int gf_engine_stop_take(gf_engine* e) {
 
 int gf_engine_track_count(gf_engine* e) { return e ? e->engine.trackCount() : 0; }
 
+void gf_engine_set_track_muted(gf_engine* e, int index, int muted) {
+  if (e) e->engine.setTrackMuted(index, muted != 0);
+}
+void gf_engine_set_track_gain(gf_engine* e, int index, float gain) {
+  if (e) e->engine.setTrackGain(index, gain);
+}
+
 void gf_engine_set_tempo(gf_engine* e, double bpm) {
   if (e) e->engine.setTempo(bpm);
 }

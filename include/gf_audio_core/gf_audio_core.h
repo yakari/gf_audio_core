@@ -38,6 +38,11 @@ GF_API int gf_engine_start_take(gf_engine* e, int count_in_bars);
 GF_API int gf_engine_stop_take(gf_engine* e);
 GF_API int gf_engine_track_count(gf_engine* e);
 
+// Per-take mix: mute/unmute and linear gain (1.0 = unity) for a recorded track
+// by 0-based index (< track_count). RT-safe.
+GF_API void gf_engine_set_track_muted(gf_engine* e, int index, int muted);
+GF_API void gf_engine_set_track_gain(gf_engine* e, int index, float gain);
+
 GF_API void gf_engine_set_tempo(gf_engine* e, double bpm);
 GF_API void gf_engine_set_time_signature(gf_engine* e, int numerator, int denominator);
 GF_API void gf_engine_set_metronome_enabled(gf_engine* e, int enabled);
