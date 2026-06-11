@@ -66,7 +66,7 @@ void gf_engine_stop(gf_engine* e) {
   if (e && e->backend) e->backend->stop();
 }
 
-int gf_engine_start_take(gf_engine* e) {
+int gf_engine_start_take(gf_engine* e, int count_in_bars) {
   if (!e) return 0;
   // Reopen as duplex (acquires the mic). On failure the backend keeps the reason
   // for gf_engine_last_error; restore playback-only so the app stays usable.
@@ -74,8 +74,7 @@ int gf_engine_start_take(gf_engine* e) {
     gfStartBackend(e, 0);
     return 0;
   }
-  e->engine.play();  // seek to 0 and roll the existing tracks
-  e->engine.setRecording(true);
+  e->engine.startTake(count_in_bars);  // count-in, then play + capture from bar 0
   e->recording = true;
   return 1;
 }

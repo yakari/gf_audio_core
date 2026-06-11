@@ -3,6 +3,7 @@
 
 #include "gf_audio_core/engine.h"
 
+#include <cmath>
 #include <cstring>
 #include <vector>
 
@@ -38,12 +39,35 @@ void Engine::setTimeSignature(int numerator, int denominator) {
   target_ts_den_.store(denominator, std::memory_order_relaxed);
 }
 
+void Engine::seekTo(int64_t frame) {
+  seek_target_.store(frame, std::memory_order_relaxed);
+  seek_pending_.store(true, std::memory_order_release);
+}
+
+double Engine::framesPerBarNow() const {
+  const double bpm = target_bpm_.load(std::memory_order_relaxed);
+  const int num = target_ts_num_.load(std::memory_order_relaxed);
+  const int den = target_ts_den_.load(std::memory_order_relaxed);
+  if (bpm <= 0.0 || den <= 0) return 0.0;
+  const double frames_per_quarter = transport_.sampleRate() * 60.0 / bpm;
+  return frames_per_quarter * 4.0 / den * num;
+}
+
 void Engine::play() {
-  seek_to_.store(0, std::memory_order_relaxed);
+  seekTo(0);
   playing_.store(true, std::memory_order_relaxed);
 }
 
 void Engine::stop() { playing_.store(false, std::memory_order_relaxed); }
+
+void Engine::startTake(int count_in_bars) {
+  const int bars = count_in_bars > 0 ? count_in_bars : 0;
+  const int64_t count_in = static_cast<int64_t>(std::llround(bars * framesPerBarNow()));
+  record_start_head_.store(-1, std::memory_order_relaxed);
+  recording_.store(true, std::memory_order_release);
+  seekTo(-count_in);  // start the playhead before bar 0 so the count-in plays
+  playing_.store(true, std::memory_order_relaxed);
+}
 
 Track* Engine::addTrack() {
   const int c = track_count_.load(std::memory_order_relaxed);
@@ -63,11 +87,9 @@ void Engine::process(const float* in, float* out, int num_frames) {
   if (tsn != transport_.timeSignature().numerator || tsd != transport_.timeSignature().denominator)
     transport_.setTimeSignature({tsn, tsd});
 
-  const int64_t seek = seek_to_.load(std::memory_order_relaxed);
-  if (seek >= 0) {
-    head_ = seek;
+  if (seek_pending_.exchange(false, std::memory_order_acquire)) {
+    head_ = seek_target_.load(std::memory_order_relaxed);
     metronome_.reset();
-    seek_to_.store(-1, std::memory_order_relaxed);
   }
 
   std::memset(out, 0, sizeof(float) * static_cast<size_t>(num_frames) * out_ch);
@@ -79,9 +101,12 @@ void Engine::process(const float* in, float* out, int num_frames) {
     const int count = track_count_.load(std::memory_order_acquire);
     for (int i = 0; i < count; ++i) tracks_[i].process(out, out_ch, head_, num_frames);
 
-    if (in != nullptr && input_channels_ > 0 && recording_.load(std::memory_order_relaxed)) {
-      // Stamp the grid position of the very first captured frame so the take
-      // can later be aligned (latency-compensated) back onto the grid.
+    // Capture only once we reach bar 0 (head >= 0): the count-in plays the
+    // metronome at negative head but is not recorded.
+    if (in != nullptr && input_channels_ > 0 && head_ >= 0 &&
+        recording_.load(std::memory_order_relaxed)) {
+      // Stamp the grid position of the first captured frame so the take can be
+      // aligned (latency-compensated) back onto the grid.
       if (record_start_head_.load(std::memory_order_relaxed) < 0)
         record_start_head_.store(head_, std::memory_order_release);
       record_ring_.push(in, static_cast<size_t>(num_frames) * input_channels_);

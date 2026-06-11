@@ -27,7 +27,7 @@ class Metronome {
   std::vector<float> normal_click_;
   const std::vector<float>* active_ = nullptr;
   size_t active_pos_ = 0;
-  int64_t last_beat_index_ = -1;
+  int64_t last_beat_index_ = INT64_MIN;
 };
 
 }  // namespace gf

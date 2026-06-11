@@ -34,6 +34,12 @@ class Engine {
   void setMetronomeEnabled(bool on) { metronome_on_.store(on, std::memory_order_relaxed); }
   void play();   // seek to 0 and start the transport
   void stop();   // pause the transport (keeps playhead)
+
+  // Starts a recording take with an optional count-in: the metronome ticks for
+  // count_in_bars bars before bar 0, then existing tracks play and capture
+  // begins at bar 0. count_in_bars == 0 records immediately from bar 0.
+  void startTake(int count_in_bars);
+
   // Enabling recording re-arms the start-head latch; the audio thread stamps
   // the playhead at the first captured block (see recordStartHead()).
   void setRecording(bool on) {
@@ -71,6 +77,11 @@ class Engine {
  private:
   static constexpr int kMaxTracks = 16;
 
+  // Frames per bar from the current target tempo / time signature (control
+  // thread); used to size the count-in.
+  double framesPerBarNow() const;
+  void seekTo(int64_t frame);
+
   Transport transport_;
   Metronome metronome_;
   std::array<Track, kMaxTracks> tracks_;  // fixed slots; unused ones are silent
@@ -87,7 +98,8 @@ class Engine {
   std::atomic<bool> playing_{false};
   std::atomic<bool> recording_{false};
   std::atomic<int64_t> record_start_head_{-1};  // playhead latched at capture start
-  std::atomic<int64_t> seek_to_{-1};            // >=0 requests a playhead seek
+  std::atomic<bool> seek_pending_{false};       // a seek to seek_target_ is requested
+  std::atomic<int64_t> seek_target_{0};         // target playhead frame (may be negative)
   std::atomic<int64_t> play_head_{0};
 
   int64_t head_ = 0;  // audio-thread-owned mirror of the playhead

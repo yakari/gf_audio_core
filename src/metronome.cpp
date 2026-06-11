@@ -30,7 +30,7 @@ void Metronome::prepare(double sr) {
 void Metronome::reset() {
   active_ = nullptr;
   active_pos_ = 0;
-  last_beat_index_ = -1;
+  last_beat_index_ = INT64_MIN;  // sentinel that no beat index can collide with
 }
 
 void Metronome::process(float* out, int out_channels, int64_t start_frame, int num_frames,
@@ -41,7 +41,7 @@ void Metronome::process(float* out, int out_channels, int64_t start_frame, int n
 
   for (int i = 0; i < num_frames; ++i) {
     const int64_t f = start_frame + i;
-    if (fpb > 0.0 && f >= 0) {
+    if (fpb > 0.0) {  // also ticks at negative f for the count-in before bar 0
       const int64_t beat_index = static_cast<int64_t>(std::floor(f / fpb));
       if (beat_index != last_beat_index_) {
         last_beat_index_ = beat_index;
