@@ -11,7 +11,33 @@
 struct gf_engine {
   gf::Engine engine;
   std::unique_ptr<gf::IAudioBackend> backend;
+  double sample_rate = 48000.0;
+  int buffer_frames = 256;
+  int output_channels = 2;
+  int capture_channels = 1;  // channels captured during a take
+  bool recording = false;
 };
+
+namespace {
+// (Re)opens the audio device in the given input mode (0 = playback-only,
+// >0 = duplex, which acquires the mic). Recreates the render closure each time.
+// Returns 1 on success.
+int gfStartBackend(gf_engine* e, int input_channels) {
+  if (e->backend && e->backend->isRunning()) e->backend->stop();
+  if (!e->backend) e->backend = gf::createMiniaudioBackend();
+  gf::IAudioBackend::Config cfg;
+  cfg.sample_rate = e->sample_rate;
+  cfg.buffer_frames = e->buffer_frames;
+  cfg.input_channels = input_channels;
+  cfg.output_channels = e->output_channels;
+  gf::Engine* engine = &e->engine;
+  return e->backend->start(cfg, [engine](const float* in, float* out, int n) {
+    engine->process(in, out, n);
+  })
+             ? 1
+             : 0;
+}
+}  // namespace
 
 extern "C" {
 
@@ -26,24 +52,49 @@ void gf_engine_destroy(gf_engine* e) {
 int gf_engine_start(gf_engine* e, double sample_rate, int buffer_frames, int input_channels,
                     int output_channels) {
   if (!e) return 0;
-  e->engine.prepare(sample_rate, input_channels, output_channels);
-  e->backend = gf::createMiniaudioBackend();
-  gf::IAudioBackend::Config cfg;
-  cfg.sample_rate = sample_rate;
-  cfg.buffer_frames = buffer_frames;
-  cfg.input_channels = input_channels;
-  cfg.output_channels = output_channels;
-  gf::Engine* engine = &e->engine;
-  return e->backend->start(cfg, [engine](const float* in, float* out, int n) {
-    engine->process(in, out, n);
-  })
-             ? 1
-             : 0;
+  e->sample_rate = sample_rate;
+  e->buffer_frames = buffer_frames;
+  e->output_channels = output_channels;
+  e->capture_channels = input_channels > 0 ? input_channels : 1;
+  // Prepare capture-capable (ring sized) but open the device playback-only — the
+  // mic is only acquired during an actual take (gf_engine_start_take).
+  e->engine.prepare(sample_rate, e->capture_channels, output_channels);
+  return gfStartBackend(e, 0);
 }
 
 void gf_engine_stop(gf_engine* e) {
   if (e && e->backend) e->backend->stop();
 }
+
+int gf_engine_start_take(gf_engine* e) {
+  if (!e) return 0;
+  // Reopen as duplex (acquires the mic). On failure the backend keeps the reason
+  // for gf_engine_last_error; restore playback-only so the app stays usable.
+  if (!gfStartBackend(e, e->capture_channels)) {
+    gfStartBackend(e, 0);
+    return 0;
+  }
+  e->engine.play();  // seek to 0 and roll the existing tracks
+  e->engine.setRecording(true);
+  e->recording = true;
+  return 1;
+}
+
+int gf_engine_stop_take(gf_engine* e) {
+  if (!e || !e->recording) return 0;
+  // Read reported latency while the duplex device is still open.
+  const double round_trip =
+      e->backend ? e->backend->outputLatencyFrames() + e->backend->inputLatencyFrames() : 0.0;
+  e->engine.setRecording(false);
+  e->engine.stop();                    // stop transport
+  if (e->backend) e->backend->stop();  // audio thread gone -> safe to mutate tracks
+  const bool committed = e->engine.commitTake(round_trip);
+  gfStartBackend(e, 0);                // release the mic, back to playback-only
+  e->recording = false;
+  return committed ? 1 : 0;
+}
+
+int gf_engine_track_count(gf_engine* e) { return e ? e->engine.trackCount() : 0; }
 
 void gf_engine_set_tempo(gf_engine* e, double bpm) {
   if (e) e->engine.setTempo(bpm);

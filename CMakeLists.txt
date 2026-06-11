@@ -59,6 +59,18 @@ if(GF_AUDIO_BUILD_DEMO)
   # Real-hardware round-trip latency probe (acoustic loopback).
   add_executable(gf_latency_probe tools/gf_latency_probe.cpp)
   target_link_libraries(gf_latency_probe PRIVATE gf_audio_core gf_audio_backend_miniaudio)
+
+  # Record -> latency-align -> playback, on the real device.
+  add_executable(gf_record_demo tools/gf_record_demo.cpp)
+  target_link_libraries(gf_record_demo PRIVATE gf_audio_core gf_audio_backend_miniaudio)
+
+  # Device diagnostic: compiles its own miniaudio (do NOT link the backend lib,
+  # which also defines the implementation).
+  add_executable(gf_audio_devices tools/gf_audio_devices.cpp)
+  target_link_libraries(gf_audio_devices PRIVATE gf_miniaudio)
+  if(UNIX AND NOT APPLE)
+    target_link_libraries(gf_audio_devices PRIVATE Threads::Threads ${CMAKE_DL_LIBS} m)
+  endif()
 endif()
 
 if(GF_AUDIO_BUILD_TESTS)

@@ -57,6 +57,14 @@ class Engine {
     return record_ring_.pop(out, max_samples);
   }
 
+  // Drains all captured input and commits it as a grid-aligned, playable track,
+  // shifted earlier by round_trip_frames to undo monitoring latency. Call ONLY
+  // with the audio device stopped (it mutates the track list and drains the
+  // ring). Returns true if a take was added.
+  bool commitTake(double round_trip_frames);
+
+  int trackCount() const { return track_count_.load(std::memory_order_acquire); }
+
   // ---- audio thread ----
   void process(const float* in, float* out, int num_frames);
 

@@ -4,8 +4,16 @@
 #include "gf_audio_core/engine.h"
 
 #include <cstring>
+#include <vector>
+
+#include "gf_audio_core/recorder.h"
 
 namespace gf {
+namespace {
+// v1 take-length cap: seconds of capture held in the ring until commit. Longer
+// takes need a streaming drain (TODO); this keeps the always-allocated ring small.
+constexpr double kCaptureSeconds = 30.0;
+}  // namespace
 
 void Engine::prepare(double sample_rate, int input_channels, int output_channels) {
   input_channels_ = input_channels > 0 ? input_channels : 0;
@@ -17,9 +25,9 @@ void Engine::prepare(double sample_rate, int input_channels, int output_channels
       {target_ts_num_.load(std::memory_order_relaxed), target_ts_den_.load(std::memory_order_relaxed)});
   metronome_.prepare(sample_rate);
 
-  // ~8 s of input capture headroom between record-thread drains.
+  // Capture buffer for one take, drained once at commit (see commitTake).
   const int in_ch = input_channels_ > 0 ? input_channels_ : 1;
-  record_ring_.reset(static_cast<size_t>(sample_rate * in_ch * 8.0));
+  record_ring_.reset(static_cast<size_t>(sample_rate * in_ch * kCaptureSeconds));
 
   head_ = 0;
   play_head_.store(0, std::memory_order_relaxed);
@@ -89,6 +97,28 @@ void Engine::process(const float* in, float* out, int num_frames) {
     const float s = out[i];
     out[i] = s > 1.0f ? 1.0f : (s < -1.0f ? -1.0f : s);
   }
+}
+
+bool Engine::commitTake(double round_trip_frames) {
+  // Drain everything captured during the take. Safe only with the audio device
+  // stopped — no concurrent producer on the ring.
+  std::vector<float> captured;
+  float tmp[4096];
+  size_t n;
+  while ((n = record_ring_.pop(tmp, 4096)) > 0) captured.insert(captured.end(), tmp, tmp + n);
+  if (captured.empty()) return false;
+
+  AlignedTake take = alignCapturedTake(std::move(captured), input_channels_,
+                                       record_start_head_.load(std::memory_order_relaxed),
+                                       round_trip_frames);
+  if (take.samples.empty()) return false;
+
+  Track* track = addTrack();
+  if (track == nullptr) return false;
+  track->setBuffer(std::move(take.samples), take.channels, take.start_frame);
+
+  record_start_head_.store(-1, std::memory_order_relaxed);
+  return true;
 }
 
 }  // namespace gf

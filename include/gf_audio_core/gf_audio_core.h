@@ -27,6 +27,16 @@ GF_API int gf_engine_start(gf_engine* e, double sample_rate, int buffer_frames,
                            int input_channels, int output_channels);
 GF_API void gf_engine_stop(gf_engine* e);
 
+// Recording. gf_engine_start_take reopens the device as duplex (acquiring the
+// mic), seeks to 0, plays existing tracks and captures the performance.
+// gf_engine_stop_take finalizes: it latency-aligns the captured take onto the
+// grid, adds it as a playable track, and returns the device to playback-only;
+// returns 1 if a take was committed. gf_engine_track_count is the number of
+// recorded tracks. On a start_take failure, gf_engine_last_error has the reason.
+GF_API int gf_engine_start_take(gf_engine* e);
+GF_API int gf_engine_stop_take(gf_engine* e);
+GF_API int gf_engine_track_count(gf_engine* e);
+
 GF_API void gf_engine_set_tempo(gf_engine* e, double bpm);
 GF_API void gf_engine_set_time_signature(gf_engine* e, int numerator, int denominator);
 GF_API void gf_engine_set_metronome_enabled(gf_engine* e, int enabled);
