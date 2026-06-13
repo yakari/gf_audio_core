@@ -11,6 +11,13 @@ void Track::setBuffer(std::vector<float> samples, int channels, int64_t start_fr
   start_frame_ = start_frame;
 }
 
+int Track::copyInto(float* out, int64_t max) const {
+  const int64_t total = static_cast<int64_t>(samples_.size());
+  const int64_t n = total < max ? total : max;
+  for (int64_t i = 0; i < n; ++i) out[i] = samples_[i];
+  return static_cast<int>(n);
+}
+
 void Track::process(float* out, int out_channels, int64_t start_frame, int num_frames) const {
   if (muted_.load(std::memory_order_relaxed)) return;
   const int64_t len = lengthFrames();

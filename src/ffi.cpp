@@ -102,6 +102,25 @@ void gf_engine_set_track_gain(gf_engine* e, int index, float gain) {
   if (e) e->engine.setTrackGain(index, gain);
 }
 
+int gf_engine_track_frame_count(gf_engine* e, int index) {
+  return e ? e->engine.trackFrameCount(index) : 0;
+}
+int gf_engine_track_channels(gf_engine* e, int index) {
+  return e ? e->engine.trackChannels(index) : 0;
+}
+long long gf_engine_track_start_frame(gf_engine* e, int index) {
+  return e ? static_cast<long long>(e->engine.trackStartFrame(index)) : 0;
+}
+int gf_engine_copy_track_samples(gf_engine* e, int index, float* out, int max_samples) {
+  return e ? e->engine.copyTrackSamples(index, out, max_samples) : 0;
+}
+int gf_engine_add_remote_track(gf_engine* e, const float* samples, int sample_count, int channels,
+                               long long start_frame) {
+  return e ? e->engine.addTrackData(samples, sample_count, channels,
+                                    static_cast<int64_t>(start_frame))
+           : -1;
+}
+
 void gf_engine_set_tempo(gf_engine* e, double bpm) {
   if (e) e->engine.setTempo(bpm);
 }

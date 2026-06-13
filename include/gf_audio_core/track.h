@@ -22,9 +22,15 @@ class Track {
   void setMuted(bool muted) { muted_.store(muted, std::memory_order_relaxed); }
   bool muted() const { return muted_.load(std::memory_order_relaxed); }
   int64_t startFrame() const { return start_frame_; }
+  int channels() const { return channels_; }
+  int64_t sampleCount() const { return static_cast<int64_t>(samples_.size()); }
   int64_t lengthFrames() const {
     return channels_ > 0 ? static_cast<int64_t>(samples_.size() / channels_) : 0;
   }
+
+  // Copies up to `max` interleaved samples into `out`; returns the count copied.
+  // RT-safe read (does not mutate); safe to call while the engine plays.
+  int copyInto(float* out, int64_t max) const;
 
   // Mixes this track's audio for [start_frame, start_frame + num_frames) into
   // the interleaved `out` buffer (additive). RT-safe.

@@ -75,6 +75,20 @@ class Engine {
   void setTrackMuted(int index, bool muted);
   void setTrackGain(int index, float gain);  // linear, 1.0 = unity
 
+  // ---- take export / import (for LAN transfer) ----
+  // Export a recorded track's PCM + grid position (RT-safe reads, ok while
+  // playing). copyTrackSamples fills `out` (size >= frameCount * channels) and
+  // returns the count copied.
+  int trackFrameCount(int index) const;
+  int trackChannels(int index) const;
+  int64_t trackStartFrame(int index) const;
+  int copyTrackSamples(int index, float* out, int max_samples) const;
+
+  // Import external PCM as a track placed at start_frame. Thread-safe while
+  // playing (fills the slot, then publishes the count). Returns the new track
+  // index, or -1 if full / empty.
+  int addTrackData(const float* samples, int sample_count, int channels, int64_t start_frame);
+
   // ---- audio thread ----
   void process(const float* in, float* out, int num_frames);
 

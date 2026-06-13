@@ -43,6 +43,17 @@ GF_API int gf_engine_track_count(gf_engine* e);
 GF_API void gf_engine_set_track_muted(gf_engine* e, int index, int muted);
 GF_API void gf_engine_set_track_gain(gf_engine* e, int index, float gain);
 
+// Take export / import for LAN transfer. Samples are interleaved f32; sizes are
+// in samples (frames * channels). Export a recorded track's PCM (copy into a
+// caller-allocated buffer) plus its grid origin; import external PCM as a new
+// track placed at start_frame (returns the new index, or -1 if full).
+GF_API int gf_engine_track_frame_count(gf_engine* e, int index);
+GF_API int gf_engine_track_channels(gf_engine* e, int index);
+GF_API long long gf_engine_track_start_frame(gf_engine* e, int index);
+GF_API int gf_engine_copy_track_samples(gf_engine* e, int index, float* out, int max_samples);
+GF_API int gf_engine_add_remote_track(gf_engine* e, const float* samples, int sample_count,
+                                      int channels, long long start_frame);
+
 GF_API void gf_engine_set_tempo(gf_engine* e, double bpm);
 GF_API void gf_engine_set_time_signature(gf_engine* e, int numerator, int denominator);
 GF_API void gf_engine_set_metronome_enabled(gf_engine* e, int enabled);

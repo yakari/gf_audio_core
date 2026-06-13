@@ -86,6 +86,35 @@ void Engine::setTrackGain(int index, float gain) {
     tracks_[index].setGain(gain);
 }
 
+int Engine::trackFrameCount(int index) const {
+  if (index < 0 || index >= track_count_.load(std::memory_order_acquire)) return 0;
+  return static_cast<int>(tracks_[index].lengthFrames());
+}
+
+int Engine::trackChannels(int index) const {
+  if (index < 0 || index >= track_count_.load(std::memory_order_acquire)) return 0;
+  return tracks_[index].channels();
+}
+
+int64_t Engine::trackStartFrame(int index) const {
+  if (index < 0 || index >= track_count_.load(std::memory_order_acquire)) return 0;
+  return tracks_[index].startFrame();
+}
+
+int Engine::copyTrackSamples(int index, float* out, int max_samples) const {
+  if (index < 0 || index >= track_count_.load(std::memory_order_acquire)) return 0;
+  return tracks_[index].copyInto(out, max_samples);
+}
+
+int Engine::addTrackData(const float* samples, int sample_count, int channels, int64_t start_frame) {
+  const int c = track_count_.load(std::memory_order_relaxed);
+  if (c >= kMaxTracks || sample_count <= 0 || samples == nullptr) return -1;
+  std::vector<float> buffer(samples, samples + sample_count);
+  tracks_[c].setBuffer(std::move(buffer), channels, start_frame);  // fill the slot first
+  track_count_.store(c + 1, std::memory_order_release);            // then publish
+  return c;
+}
+
 void Engine::process(const float* in, float* out, int num_frames) {
   const int out_ch = output_channels_;
 
